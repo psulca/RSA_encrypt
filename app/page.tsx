@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Lock, Unlock, Download, CheckCircle, FileUp, Key, Loader2 } from "lucide-react"
+import { Lock, Unlock, Download, Key, Loader2 } from "lucide-react"
 import { CustomTabs } from "@/app/components/ui/custom-tabs"
 import { FileUpload } from "@/app/components/file-upload"
 import { KeyGeneration } from "@/app/components/encryption/key-generation"
@@ -14,7 +14,7 @@ import { EncryptionSuccessScreen } from "@/app/components/encryption/success-scr
 import { DecryptionSuccessScreen } from "@/app/components/decryption/success-screen"
 import { EncryptionOverlay } from "@/app/components/ui/encryption-overlay"
 import { DecryptionOverlay } from "@/app/components/ui/decryption-overlay"
-import { type RSAKeys, encryptFile, createEncryptedFile, decryptFile } from "@/utils/rsa"
+import { type RSAKeys, decryptFile } from "@/utils/rsa"
 
 export default function EncryptionApp() {
   const [encryptFiles, setEncryptFiles] = useState<File[]>([])
@@ -42,7 +42,6 @@ export default function EncryptionApp() {
   const [decryptedContent, setDecryptedContent] = useState("")
   const [isEncrypting, setIsEncrypting] = useState(false)
   const [encryptionComplete, setEncryptionComplete] = useState(false)
-  console.log('encryptionComplete en page.tsx:', encryptionComplete)
   const [showDropzone, setShowDropzone] = useState(true)
   const [privateKey, setPrivateKey] = useState<{ n: bigint; d: bigint } | null>(null)
   const [decryptedBlob, setDecryptedBlob] = useState<Blob | null>(null)
@@ -139,21 +138,35 @@ export default function EncryptionApp() {
     try {
       setIsEncrypting(true)
       setEncryptionError(null)
-      const encryptedNumbers = await encryptFile(fileContent, generatedKeys.publicKey)
-      const encryptedBlob = createEncryptedFile(encryptedNumbers, encryptFiles[0].name)
+
+      const response = await fetch('/api/encrypt', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: fileContent,
+          publicKey: generatedKeys.publicKey,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Error durante la encriptación')
+      }
+
+      const { encryptedContent } = await response.json()
+      const encryptedBlob = new Blob([encryptedContent], { type: 'text/plain' })
       setEncryptedBlob(encryptedBlob)
+      
+      // La animación se manejará en el EncryptionOverlay
+      // No establecemos encryptionComplete aquí, se establecerá cuando termine la animación
     } catch (error) {
-      console.error('Error during encryption:', error)
+      console.error('Error durante la encriptación:', error)
       let userMessage = 'Error durante la encriptación'
       
       if (error instanceof Error) {
-        if (error.message.includes('Se omitieron')) {
-          userMessage = 'El archivo contiene caracteres que no se pueden encriptar con esos valores de P y Q. Por favor, ingresa valores más grandes.'
-        } else if (error.message.includes('Todos los caracteres')) {
-          userMessage = 'No se pudo encriptar ningún carácter del archivo. Por favor, ingresa valores de P y Q más grandes.'
-        } else if (error.message.includes('No se generó ningún dato')) {
-          userMessage = 'No se pudo encriptar el archivo. Por favor, verifica que el archivo contenga texto válido.'
-        }
+        userMessage = error.message
       }
       
       setEncryptionError(userMessage)
@@ -162,19 +175,30 @@ export default function EncryptionApp() {
   }
 
   const handleEncryptionComplete = () => {
-    setIsEncrypting(false)
     setEncryptionComplete(true)
+    setIsEncrypting(false)
   }
 
   const downloadEncryptedFile = () => {
-    if (!encryptedBlob || !encryptFiles[0]) return
+    if (!encryptedBlob || !encryptFiles[0]) {
+      console.error('No hay archivo encriptado para descargar')
+      return
+    }
 
-    const element = document.createElement("a")
-    element.href = URL.createObjectURL(encryptedBlob)
-    element.download = `${encryptFiles[0].name.replace(".txt", "")}_encrypted.txt`
-    document.body.appendChild(element)
-    element.click()
-    document.body.removeChild(element)
+    try {
+      const blob = new Blob([encryptedBlob], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${encryptFiles[0].name.replace(".txt", "")}_encrypted.txt`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error al descargar el archivo encriptado:', error)
+      alert('Error al descargar el archivo encriptado')
+    }
   }
 
   const encryptAnotherFile = () => {
@@ -197,7 +221,6 @@ export default function EncryptionApp() {
 
   const handlePrivateKeySubmit = (n: string, d: string) => {
     try {
-      console.log('handlePrivateKeySubmit - Iniciando con valores:', { n, d })
       const nBigInt = BigInt(n)
       const dBigInt = BigInt(d)
       
@@ -206,12 +229,10 @@ export default function EncryptionApp() {
         throw new Error("n y d deben ser positivos")
       }
 
-      console.log('handlePrivateKeySubmit - Estableciendo clave privada')
       const newPrivateKey = { n: nBigInt, d: dBigInt }
       setPrivateKey(newPrivateKey)
       setStep2Active(false)
       setStep3Active(true)
-      console.log('handlePrivateKeySubmit - Clave privada establecida y estados actualizados')
       
       // Iniciar la desencriptación con la nueva clave
       processDecryptionWithKey(newPrivateKey)
@@ -221,7 +242,6 @@ export default function EncryptionApp() {
   }
 
   const processDecryptionWithKey = async (key: { n: bigint; d: bigint }) => {
-    console.log('processDecryptionWithKey - Iniciando con clave:', { n: key.n.toString(), d: key.d.toString() })
     
     if (!fileContent) {
       console.error('processDecryptionWithKey - Error: fileContent no existe')
@@ -229,19 +249,14 @@ export default function EncryptionApp() {
     }
 
     try {
-      console.log('processDecryptionWithKey - Estableciendo isDecrypting a true')
       setIsDecrypting(true)
       
-      console.log('processDecryptionWithKey - Llamando a decryptFile')
       const decryptedContent = await decryptFile(fileContent, key)
-      console.log('processDecryptionWithKey - Contenido desencriptado recibido:', decryptedContent.substring(0, 100) + '...')
       
       const decryptedBlob = new Blob([decryptedContent], { type: 'text/plain' })
-      console.log('processDecryptionWithKey - Blob creado')
       
       setDecryptedBlob(decryptedBlob)
       setDecryptedContent(decryptedContent)
-      console.log('processDecryptionWithKey - Estados actualizados con contenido desencriptado')
     } catch (error) {
       console.error('processDecryptionWithKey - Error durante la desencriptación:', error)
       setIsDecrypting(false)
@@ -249,10 +264,8 @@ export default function EncryptionApp() {
   }
 
   const handleDecryptionComplete = () => {
-    console.log('handleDecryptionComplete - Iniciando')
     setIsDecrypting(false)
     setDecryptionComplete(true)
-    console.log('handleDecryptionComplete - Estados actualizados')
   }
 
   const downloadDecryptedFile = () => {
@@ -282,6 +295,46 @@ export default function EncryptionApp() {
         fileInput.value = ""
       }
     }, 300)
+  }
+
+  const processDecryption = async () => {
+    if (!decryptFiles[0] || !privateKey) {
+      console.error('Faltan archivo o clave privada')
+      return
+    }
+
+    try {
+      setIsDecrypting(true)
+      const content = await decryptFiles[0].text()
+
+      const response = await fetch('/api/decrypt', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content,
+          privateKey: {
+            n: BigInt(privateKey.n),
+            d: BigInt(privateKey.d)
+          }
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Error al desencriptar el archivo')
+      }
+
+      const { decryptedContent } = await response.json()
+      setDecryptedContent(decryptedContent)
+      setDecryptionComplete(true)
+    } catch (error) {
+      console.error('Error en la desencriptación:', error)
+      alert(error instanceof Error ? error.message : 'Error al desencriptar el archivo')
+    } finally {
+      setIsDecrypting(false)
+    }
   }
 
   return (
@@ -374,6 +427,7 @@ export default function EncryptionApp() {
                           onDownloadEncrypted={downloadEncryptedFile}
                           onEncryptAnother={encryptAnotherFile}
                           generatedKeys={generatedKeys}
+                          isEncrypting={isEncrypting}
                         />
                         {encryptionComplete && (
                           <div className="space-y-4">
@@ -387,8 +441,17 @@ export default function EncryptionApp() {
                                   border: "none",
                                 }}
                               >
+                                {isEncrypting ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Encriptando...
+                                  </>
+                                ) : (
+                                  <>
                                 <Download className="w-4 h-4 mr-2" />
                                 Descargar Archivo Encriptado
+                                  </>
+                                )}
                               </Button>
                               <Button
                                 onClick={encryptAnotherFile}
@@ -496,13 +559,7 @@ export default function EncryptionApp() {
 
                             <Button
                               onClick={() => {
-                                console.log('Botón de desencriptación - Click')
-                                console.log('Valores actuales:', {
-                                  privateKeyN,
-                                  privateKeyD,
-                                  nIsValid,
-                                  dIsValid
-                                })
+                                
                                 handlePrivateKeySubmit(privateKeyN, privateKeyD)
                               }}
                               disabled={!nIsValid || !dIsValid}
@@ -536,8 +593,15 @@ export default function EncryptionApp() {
       </div>
 
       {/* Overlays de animación - Movidos fuera del Card */}
-      <EncryptionOverlay isVisible={isEncrypting} onComplete={handleEncryptionComplete} />
-      <DecryptionOverlay isVisible={isDecrypting} onComplete={handleDecryptionComplete} />
+      <EncryptionOverlay 
+        isVisible={isEncrypting} 
+        onComplete={handleEncryptionComplete} 
+        isEncrypting={isEncrypting}
+      />
+      <DecryptionOverlay 
+        isVisible={isDecrypting} 
+        onComplete={handleDecryptionComplete} 
+      />
     </div>
   )
 }
