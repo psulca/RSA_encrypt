@@ -17,7 +17,6 @@ export function CustomTabs({ defaultValue, children, onTabChange, encryptionComp
   const [containerHeight, setContainerHeight] = useState<number | null>(null)
   const contentRef = useRef<HTMLDivElement>(null)
 
-  console.log('encryptionComplete:', encryptionComplete)
 
   useEffect(() => {
     if (contentRef.current) {

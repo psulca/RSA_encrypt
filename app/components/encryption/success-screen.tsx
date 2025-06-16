@@ -8,12 +8,14 @@ interface EncryptionSuccessScreenProps {
   onDownloadEncrypted: () => void
   onEncryptAnother: () => void
   generatedKeys: RSAKeys | null
+  isEncrypting: boolean
 }
 
 export function EncryptionSuccessScreen({
   onDownloadEncrypted,
   onEncryptAnother,
   generatedKeys,
+  isEncrypting,
 }: EncryptionSuccessScreenProps) {
   return (
     <div className="text-center space-y-6 transform transition-all duration-700 ease-in-out opacity-100 animate-in fade-in slide-in-from-bottom-4">
@@ -28,8 +30,6 @@ export function EncryptionSuccessScreen({
       </div>
       <h2 className="text-2xl font-bold text-gray-900">¡Archivo Encriptado Exitosamente!</h2>
       <p className="text-gray-600">Tu archivo ha sido encriptado de forma segura.</p>
-
-      
     </div>
   )
 } 

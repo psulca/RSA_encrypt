@@ -9,9 +9,10 @@ import { EncryptSvg } from "@/app/components/icons/encryptSvg"
 interface EncryptionOverlayProps {
   isVisible: boolean
   onComplete: () => void
+  isEncrypting: boolean
 }
 
-export function EncryptionOverlay({ isVisible, onComplete }: EncryptionOverlayProps) {
+export function EncryptionOverlay({ isVisible, onComplete, isEncrypting }: EncryptionOverlayProps) {
   const [animationStep, setAnimationStep] = useState(0)
   const [isClosing, setIsClosing] = useState(false)
 
@@ -23,30 +24,44 @@ export function EncryptionOverlay({ isVisible, onComplete }: EncryptionOverlayPr
     }
 
     const steps = [
-      { delay: 500, step: 1 }, // txt_o aparece en el centro
+      { delay: 500, step: 1 },  // txt_o aparece en el centro
       { delay: 1000, step: 2 }, // txt_o se desplaza a la izquierda
-      { delay: 1500, step: 3 }, // file_o aparece detrás, paths de txt_o desaparecen
-      { delay: 2000, step: 4 }, // file_o se mueve al centro, key_o aparece desde la derecha
+      { delay: 1500, step: 3 }, // file_o aparece detrás
+      { delay: 2000, step: 4 }, // file_o se mueve al centro, key_o aparece
       { delay: 2500, step: 5 }, // key_o se acerca al file_o
       { delay: 3000, step: 6 }, // Espera 0.5s
       { delay: 3500, step: 7 }, // file_o y key_o se desvanecen, encrypt_o aparece
     ]
 
-    steps.forEach(({ delay, step }) => {
-      setTimeout(() => {
-        if (isVisible) setAnimationStep(step)
-      }, delay)
-    })
+    // Función para manejar la animación
+    const handleAnimation = () => {
+      let currentStep = 0
+      const interval = setInterval(() => {
+        if (currentStep < steps.length) {
+          setAnimationStep(steps[currentStep].step)
+          currentStep++
+        } else {
+          // Cuando la animación termina, esperamos un momento y cerramos
+          setTimeout(() => {
+            setIsClosing(true)
+            setTimeout(() => {
+              onComplete()
+            }, 500)
+          }, 1000)
+          clearInterval(interval)
+        }
+      }, 500) // Cada paso dura 500ms
 
-    // Iniciar cierre
-    setTimeout(() => {
-      if (isVisible) {
-        setIsClosing(true)
-        setTimeout(() => {
-          onComplete()
-        }, 500)
+      return interval
+    }
+
+    const animationInterval = handleAnimation()
+
+    return () => {
+      if (animationInterval) {
+        clearInterval(animationInterval)
       }
-    }, 4500)
+    }
   }, [isVisible, onComplete])
 
   if (!isVisible && !isClosing) return null
@@ -81,7 +96,7 @@ export function EncryptionOverlay({ isVisible, onComplete }: EncryptionOverlayPr
               <div className="relative">
                 <TxtSvg />
                 {/* Overlay para ocultar paths específicos cuando aparece file_o */}
-                {animationStep >= 3 && (
+                {animationStep >= 3 &&
                   <div className="absolute inset-0">
                     <svg width="60" height="75" viewBox="0 0 77 96" className="w-full h-full">
                       {/* Mantenemos solo los paths que NO deben desaparecer */}
@@ -102,7 +117,7 @@ export function EncryptionOverlay({ isVisible, onComplete }: EncryptionOverlayPr
                       <rect x="14" y="24" width="49" height="50" fill="rgba(12, 117, 111, 0.1)" />
                     </svg>
                   </div>
-                )}
+                }
               </div>
             </div>
 
@@ -160,7 +175,7 @@ export function EncryptionOverlay({ isVisible, onComplete }: EncryptionOverlayPr
           </div>
 
           <p className="text-sm text-gray-600">
-            {animationStep < 7 ? "Procesando archivo..." : "¡Encriptación completada!"}
+            {animationStep >= 7 ? "¡Encriptación completada!" : "Procesando archivo..."}
           </p>
         </div>
       </div>
