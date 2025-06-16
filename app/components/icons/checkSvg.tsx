@@ -1,0 +1,21 @@
+import * as React from "react"
+import { SVGProps } from "react"
+export const CheckSvg = (props: SVGProps<SVGSVGElement>) => (
+  <svg
+    width={20}
+    height={20}
+    viewBox="0 0 20 20"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <rect width={20} height={20} rx={10} fill="#0C756F" />
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M6.94411 9.05719C6.42341 8.53649 5.57919 8.53649 5.05849 9.05719C4.53779 9.57789 4.53779 10.4221 5.05849 10.9428L7.72516 13.6095C8.24586 14.1302 9.09008 14.1302 9.61078 13.6095L14.9441 8.27614C15.4648 7.75544 15.4648 6.91122 14.9441 6.39052C14.4234 5.86983 13.5792 5.86983 13.0585 6.39052L8.66797 10.781L6.94411 9.05719Z"
+      fill="white"
+      stroke="#0C756F"
+    />
+  </svg>
+)
