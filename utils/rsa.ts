@@ -21,7 +21,7 @@ export function isPrime(num: number): boolean {
   return true
 }
 
-export function generateRandomPrime(min = 100, max = 1000): number {
+export function generateRandomPrime(min = 1000, max = 10000): number {
   let num: number
   do {
     num = Math.floor(Math.random() * (max - min + 1)) + min
@@ -89,7 +89,7 @@ export function encryptFile(content: string, publicKey: { n: number; e: number }
   }
 
   if (problematicChars > 0) {
-    console.warn(`ADVERTENCIA: Se omitieron ${problematicChars} carácter(es) porque su valor numérico era >= n (${publicKey.n}).`)
+    throw new Error(`Se omitieron ${problematicChars} carácter(es) porque su valor numérico era >= n (${publicKey.n}).`)
   }
 
   if (!encryptedNumbers.length && problematicChars === content.length && content.length > 0) {

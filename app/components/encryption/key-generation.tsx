@@ -145,14 +145,8 @@ export function KeyGeneration({ onKeysGenerated }: KeyGenerationProps) {
             <CopyableKeyCard title="Clave Pública" keyData={generatedKeys.publicKey} type="public" />
             <CopyableKeyCard title="Clave Privada" keyData={generatedKeys.privateKey} type="private" />
           </div>
-          <div
-            className="p-3 rounded-lg flex items-center gap-3"
-            style={{
-              backgroundColor: "rgba(255, 99, 99, 0.1)",
-            }}
-          >
-            <AlertCircle className="w-5 h-5 flex-shrink-0" style={{ color: "#FF6363" }} />
-            <p className="text-sm font-medium" style={{ color: "#FF6363" }}>
+          <div className="p-4 bg-[rgba(12,117,111,0.1)] border border-[#0C756F] rounded-lg">
+            <p className="text-sm text-[#0C756F]">
               IMPORTANTE: Guarda tu clave privada en un lugar seguro. La necesitarás para desencriptar el archivo.
             </p>
           </div>

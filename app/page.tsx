@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Lock, Unlock, Download, CheckCircle, FileUp, Key } from "lucide-react"
+import { Lock, Unlock, Download, CheckCircle, FileUp, Key, Loader2 } from "lucide-react"
 import { CustomTabs } from "@/app/components/ui/custom-tabs"
 import { FileUpload } from "@/app/components/file-upload"
 import { KeyGeneration } from "@/app/components/encryption/key-generation"
@@ -30,6 +30,7 @@ export default function EncryptionApp() {
   const [step2Active, setStep2Active] = useState(false)
   const [step3Active, setStep3Active] = useState(false)
   const [encryptedBlob, setEncryptedBlob] = useState<Blob | null>(null)
+  const [encryptionError, setEncryptionError] = useState<string | null>(null)
 
   // Estados para el flujo de desencriptación
   const [privateKeyN, setPrivateKeyN] = useState("")
@@ -118,6 +119,7 @@ export default function EncryptionApp() {
     setPrivateKeyN("")
     setPrivateKeyD("")
     setDecryptedContent("")
+    setEncryptionError(null)
 
     // Reset del input file para permitir subir archivos con el mismo nombre
     const fileInput = document.getElementById("file-upload") as HTMLInputElement
@@ -128,6 +130,7 @@ export default function EncryptionApp() {
 
   const handleKeysGenerated = (keys: RSAKeys | null) => {
     setGeneratedKeys(keys)
+    setEncryptionError(null)
   }
 
   const processEncryption = async () => {
@@ -135,11 +138,25 @@ export default function EncryptionApp() {
 
     try {
       setIsEncrypting(true)
+      setEncryptionError(null)
       const encryptedNumbers = await encryptFile(fileContent, generatedKeys.publicKey)
       const encryptedBlob = createEncryptedFile(encryptedNumbers, encryptFiles[0].name)
       setEncryptedBlob(encryptedBlob)
     } catch (error) {
       console.error('Error during encryption:', error)
+      let userMessage = 'Error durante la encriptación'
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Se omitieron')) {
+          userMessage = 'El archivo contiene caracteres que no se pueden encriptar con esos valores de P y Q. Por favor, ingresa valores más grandes.'
+        } else if (error.message.includes('Todos los caracteres')) {
+          userMessage = 'No se pudo encriptar ningún carácter del archivo. Por favor, ingresa valores de P y Q más grandes.'
+        } else if (error.message.includes('No se generó ningún dato')) {
+          userMessage = 'No se pudo encriptar el archivo. Por favor, verifica que el archivo contenga texto válido.'
+        }
+      }
+      
+      setEncryptionError(userMessage)
       setIsEncrypting(false)
     }
   }
@@ -320,18 +337,35 @@ export default function EncryptionApp() {
 
                         {/* Botón Final de Encriptar */}
                         {generatedKeys && (
-                          <Button
-                            onClick={processEncryption}
-                            className="w-full hover:opacity-90 transition-all duration-300 ease-in-out"
-                            style={{
-                              backgroundColor: "#FDCF6F",
-                              color: "#000201",
-                              border: "none",
-                            }}
-                          >
-                            <Lock className="w-4 h-4 mr-2" />
-                            Encriptar Archivo
-                          </Button>
+                          <div className="space-y-4">
+                            {encryptionError && (
+                              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                                <p className="text-sm text-red-600">{encryptionError}</p>
+                              </div>
+                            )}
+                            <Button
+                              onClick={processEncryption}
+                              className="w-full hover:opacity-90 transition-all duration-300 ease-in-out"
+                              style={{
+                                backgroundColor: "#FDCF6F",
+                                color: "#000201",
+                                border: "none",
+                              }}
+                              disabled={isEncrypting}
+                            >
+                              {isEncrypting ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  Encriptando...
+                                </>
+                              ) : (
+                                <>
+                                  <Lock className="w-4 h-4 mr-2" />
+                                  Encriptar Archivo
+                                </>
+                              )}
+                            </Button>
+                          </div>
                         )}
                       </>
                     ) : (
